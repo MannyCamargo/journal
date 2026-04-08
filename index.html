@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Journal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/openpgp/5.11.2/openpgp.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Courier+Prime:ital@0;1&display=swap');
+
+  :root {
+    --ink: #1a1612;
+    --paper: #f5f0e8;
+    --paper-mid: #ede8db;
+    --paper-dark: #d9d2c0;
+    --accent: #7a3b2e;
+    --accent-dim: #a0604f;
+    --rule: rgba(26,22,18,0.12);
+    --shadow: rgba(26,22,18,0.18);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--paper-dark);
+    font-family: 'EB Garamond', Georgia, serif;
+    color: var(--ink);
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 31px,
+        rgba(180,160,130,0.18) 31px,
+        rgba(180,160,130,0.18) 32px
+      ),
+      linear-gradient(135deg, #cfc8b4 0%, #bfb89e 50%, #c9c2ae 100%);
+    padding: 2rem 1rem 4rem;
+  }
+
+  /* ── Header ── */
+  .masthead {
+    width: 100%;
+    max-width: 720px;
+    text-align: center;
+    margin-bottom: 1.8rem;
+    position: relative;
+  }
+
+  .masthead h1 {
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .masthead .rule-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ink), transparent);
+    margin: 0.5rem 0;
+    opacity: 0.4;
+  }
+
+  .masthead .datestamp {
+    font-size: 0.8rem;
+    font-family: 'Courier Prime', monospace;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    opacity: 0.8;
+    text-transform: uppercase;
+  }
+
+  /* ── Ephemeral notice ── */
+  .notice {
+    width: 100%;
+    max-width: 720px;
+    background: rgba(122,59,46,0.08);
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 1rem;
+    font-size: 0.82rem;
+    font-family: 'Courier Prime', monospace;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    margin-bottom: 1.4rem;
+    line-height: 1.5;
+  }
+
+  /* ── Journal card ── */
+  .journal-card {
+    width: 100%;
+    max-width: 720px;
+    background: var(--paper);
+    box-shadow:
+      2px 2px 0 var(--paper-dark),
+      4px 4px 0 rgba(0,0,0,0.06),
+      0 8px 32px var(--shadow);
+    border-radius: 1px;
+    padding: 2.4rem 2.8rem 2rem;
+    position: relative;
+  }
+
+  /* Left margin line */
+  .journal-card::before {
+    content: '';
+    position: absolute;
+    left: 64px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(180,80,60,0.2);
+    pointer-events: none;
+  }
+
+  .field-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .field-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  label {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: 'Courier Prime', monospace;
+  }
+
+  input[type="text"], input[type="date"] {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--rule);
+    padding: 0.25rem 0;
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 1.05rem;
+    color: var(--ink);
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+
+  input[type="text"]:focus, input[type="date"]:focus {
+    border-color: var(--accent-dim);
+  }
+
+  input[type="date"] {
+    font-size: 0.9rem;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  .divider {
+    height: 1px;
+    background: var(--rule);
+    margin: 1.2rem 0;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 360px;
+    background: transparent;
+    border: none;
+    resize: vertical;
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 1.15rem;
+    line-height: 2rem; /* match background lines */
+    color: var(--ink);
+    outline: none;
+    padding: 0.1rem 0;
+  }
+
+  textarea::placeholder {
+    color: rgba(26,22,18,0.25);
+    font-style: italic;
+  }
+
+  /* ── Word count ── */
+  .meta-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.6rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.72rem;
+    color: rgba(26,22,18,0.35);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Buttons ── */
+  .actions {
+    display: flex;
+    gap: 0.8rem;
+    margin-top: 1.4rem;
+    flex-wrap: wrap;
+  }
+
+  button {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 0.95rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .btn-save {
+    background: var(--accent);
+    color: var(--paper);
+    padding: 0.65rem 2rem;
+    flex: 1;
+    min-width: 160px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.85rem;
+  }
+
+  .btn-save:hover {
+    background: var(--ink);
+  }
+
+  .btn-save:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: var(--accent);
+  }
+
+  .btn-clear {
+    background: transparent;
+    color: rgba(26,22,18,0.45);
+    padding: 0.65rem 1.2rem;
+    border: 1px solid var(--rule);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+
+  .btn-clear:hover {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  /* ── Status toast ── */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 0.7rem 1.6rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 99;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toast.error {
+    background: #6b1a1a;
+  }
+
+  /* ── Confirm modal (before clear) ── */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,22,18,0.5);
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .overlay.show { display: flex; }
+
+  .modal {
+    background: var(--paper);
+    padding: 2rem 2.4rem;
+    max-width: 380px;
+    width: 90%;
+    box-shadow: 0 12px 48px var(--shadow);
+    text-align: center;
+  }
+
+  .modal p {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1.2rem;
+    color: var(--ink);
+  }
+
+  .modal em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.8rem;
+    justify-content: center;
+  }
+
+  .btn-confirm-clear {
+    background: var(--accent);
+    color: var(--paper);
+    padding: 0.55rem 1.4rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    font-family: 'EB Garamond', serif;
+  }
+
+  .btn-confirm-clear:hover { background: #5a2a1e; }
+
+  .btn-cancel {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    padding: 0.55rem 1.2rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    font-family: 'EB Garamond', serif;
+  }
+
+  .btn-cancel:hover { border-color: var(--accent-dim); }
+
+  /* ── Spinner overlay ── */
+  .encrypting {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,22,18,0.55);
+    z-index: 60;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1rem;
+    color: var(--paper);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+  }
+
+  .encrypting.show { display: flex; }
+
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 2px solid rgba(245,240,232,0.25);
+    border-top-color: var(--paper);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 520px) {
+    .journal-card { padding: 1.6rem 1.2rem; }
+    .journal-card::before { left: 44px; }
+    .field-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="rule-line"></div>
+  <h1>Journal</h1>
+  <div class="rule-line"></div>
+  <div class="datestamp" id="today"></div>
+</div>
+
+<div class="notice">
+  ⚠ Entries exist only in memory. Close or navigate away without saving and they are gone permanently.<br>
+  Saved files are PGP-encrypted — only your private key can open them.
+</div>
+
+<div class="journal-card">
+  <div class="field-row">
+    <div class="field-group" style="flex:2">
+      <label>Title</label>
+      <input type="text" id="entryTitle" placeholder="Untitled entry" autocomplete="off">
+    </div>
+    <div class="field-group" style="flex:1">
+      <label>Date</label>
+      <input type="date" id="entryDate">
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <textarea id="entryBody" placeholder="Begin writing…" spellcheck="true"></textarea>
+
+  <div class="meta-bar">
+    <span id="wordCount">0 words</span>
+    <span id="charCount">0 characters</span>
+  </div>
+
+  <div class="actions">
+    <button class="btn-save" id="saveBtn" onclick="encryptAndSave()">
+      🔐 Encrypt &amp; Save
+    </button>
+    <button class="btn-clear" onclick="confirmClear()">Clear</button>
+  </div>
+</div>
+
+<!-- Confirm clear modal -->
+<div class="overlay" id="clearOverlay">
+  <div class="modal">
+    <p>This will erase everything currently written.<br><em>This cannot be undone.</em></p>
+    <div class="modal-actions">
+      <button class="btn-confirm-clear" onclick="doClear()">Discard</button>
+      <button class="btn-cancel" onclick="closeClearModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Encrypting overlay -->
+<div class="encrypting" id="encryptingOverlay">
+  <div class="spinner"></div>
+  <span>Encrypting…</span>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Public key ──────────────────────────────────────────────────────────────
+const ARMORED_PUBLIC_KEY = `-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+xjMEacNFgxYJKwYBBAHaRw8BAQdAz/IUK0avmEBG9so7byH/lQInivYiP/0n0dJKhZ2nfqnNMUVt
+bWFudWVsIENhbWFyZ28gPGVtbWFudWVsY2FtYXJnb0Bwcm90b25tYWlsLmNvbT7CgAQTFggAKAIZ
+AQUCacNFgwUJAeEzgAIbAwQLCQgHBhUKCAkLAgMWAQICHgECF4AACgkQM9cQcuOgias8uwEAi3dW
+ta7MaXWqfkIBxOnKvR5h7SjWs5952hNhPOkBvfoA/jwHBMBxvmGn6zHw+dx1t+BvEAsznONv7onE
+NYPdiKYHzjgEacNFgxIKKwYBBAGXVQEFAQEHQBLBxwLYIjGLrWSO342q/kqK40Z/C29A/rHrFh1k
+3bkcAwEIB8JvBBgWCAAXBQJpw0WDAhsMBAsJCAcFCQHhM4ACHgEACgkQM9cQcuOgiav9iwD6A1KL
+U6qVDFyEhDe7MYgNyvI+qGe+Go5tZ+Ny+Tbt7GIA/2K/LXBkOyNL1ufmdwZsxmD/oGc94URPxu0l
+C1TIK7MG
+=h+ND
+-----END PGP PUBLIC KEY BLOCK-----`;
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+const todayISO = new Date().toISOString().split('T')[0];
+document.getElementById('today').textContent = new Date().toLocaleDateString('en-US', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+document.getElementById('entryDate').value = todayISO;
+
+// ── Word / char count ────────────────────────────────────────────────────────
+const bodyEl    = document.getElementById('entryBody');
+const wordEl    = document.getElementById('wordCount');
+const charEl    = document.getElementById('charCount');
+
+bodyEl.addEventListener('input', updateCounts);
+
+function updateCounts() {
+  const text  = bodyEl.value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  wordEl.textContent = words + (words === 1 ? ' word' : ' words');
+  charEl.textContent = bodyEl.value.length + ' characters';
+}
+
+// ── Warn before unload if content exists ────────────────────────────────────
+window.addEventListener('beforeunload', (e) => {
+  if (bodyEl.value.trim() || document.getElementById('entryTitle').value.trim()) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// ── Encrypt & save ───────────────────────────────────────────────────────────
+async function encryptAndSave() {
+  const title = document.getElementById('entryTitle').value.trim() || 'Untitled';
+  const date  = document.getElementById('entryDate').value || todayISO;
+  const body  = bodyEl.value.trim();
+
+  if (!body) {
+    showToast('Nothing to save.', false);
+    return;
+  }
+
+  // Build plaintext payload
+  const payload = [
+    '='.repeat(60),
+    `JOURNAL ENTRY`,
+    `Title : ${title}`,
+    `Date  : ${date}`,
+    `Saved : ${new Date().toISOString()}`,
+    '='.repeat(60),
+    '',
+    body,
+    '',
+    '='.repeat(60),
+  ].join('
+');
+
+  showEncrypting(true);
+
+  try {
+    const publicKey = await openpgp.readKey({ armoredKey: ARMORED_PUBLIC_KEY });
+
+    const encrypted = await openpgp.encrypt({
+      message: await openpgp.createMessage({ text: payload }),
+      encryptionKeys: publicKey,
+    });
+
+    // Build filename: YYYY-MM-DD_title-slug.asc
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+    const filename = `${date}_${slug}.asc`;
+
+    const blob = new Blob([encrypted], { type: 'application/pgp-encrypted' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast(`Saved as ${filename}`, true);
+  } catch (err) {
+    console.error(err);
+    showToast('Encryption failed — see console.', false);
+  } finally {
+    showEncrypting(false);
+  }
+}
+
+// ── Clear ────────────────────────────────────────────────────────────────────
+function confirmClear() {
+  const hasContent = bodyEl.value.trim() || document.getElementById('entryTitle').value.trim();
+  if (!hasContent) return; // nothing to clear
+  document.getElementById('clearOverlay').classList.add('show');
+}
+
+function closeClearModal() {
+  document.getElementById('clearOverlay').classList.remove('show');
+}
+
+function doClear() {
+  document.getElementById('entryTitle').value = '';
+  document.getElementById('entryDate').value  = todayISO;
+  bodyEl.value = '';
+  updateCounts();
+  closeClearModal();
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function showEncrypting(on) {
+  document.getElementById('encryptingOverlay').classList.toggle('show', on);
+}
+
+let toastTimer;
+function showToast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast' + (ok ? '' : ' error') + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+</script>
+</body>
+</html>
